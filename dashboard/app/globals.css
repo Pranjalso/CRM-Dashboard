@@ -1,108 +1,67 @@
 @import "tailwindcss";
 
-/* =========================
-   ROOT THEME VARIABLES
-   ========================= */
 :root {
-  /* Backgrounds */
-  --bg-app: #F5F7F6;
-  --bg-card: #FFFFFF;
-  --bg-muted: #F1F5F9;
-
-  /* Primary Brand */
-  --color-primary: #0F766E;
-  --color-primary-light: #D1FAE5;
-
-  /* Text */
-  --text-main: #0F172A;
-  --text-muted: #64748B;
-  --text-light: #94A3B8;
-
-  /* Borders & Dividers */
-  --border-default: #E5E7EB;
-
-  /* Status Colors */
-  --success: #16A34A;
-  --success-bg: #DCFCE7;
-
-  --info: #2563EB;
-  --info-bg: #DBEAFE;
-
-  --warning: #EA580C;
-  --warning-bg: #FFEDD5;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --foreground-rgb: 15, 23, 42;
+  --background-rgb: 245, 247, 246;
 }
 
-/* =========================
-   BASE STYLES
-   ========================= */
-@layer base {
-  html,
-  body {
-    height: 100%;
-  }
-
-  body {
-    background-color: var(--bg-app);
-    color: var(--text-main);
-    font-family: ui-sans-serif, system-ui, -apple-system,
-      BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-      "Apple Color Emoji", "Segoe UI Emoji";
-  }
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
 }
 
-/* =========================
-   COMPONENT UTILITIES
-   ========================= */
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Table row hover effect */
+table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+/* Custom styles for better UI */
 @layer components {
-  .card {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-default);
-    border-radius: 14px;
-    box-shadow: var(--shadow-sm);
-  }
-
-  .text-muted {
-    color: var(--text-muted);
-  }
-
-  .text-light {
-    color: var(--text-light);
-  }
-
   .btn-primary {
-    background-color: var(--color-primary);
-    color: white;
-    border-radius: 10px;
-    font-weight: 500;
+    @apply bg-[#0F766E] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0d625b] transition-colors;
   }
-
+  
+  .btn-secondary {
+    @apply bg-white border border-[#E5E7EB] text-gray-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors;
+  }
+  
+  .card {
+    @apply bg-white border border-[#E5E7EB] rounded-xl;
+  }
+  
   .badge-success {
-    background-color: var(--success-bg);
-    color: var(--success);
-    border-radius: 9999px;
-    padding: 2px 8px;
-    font-size: 12px;
-    font-weight: 500;
+    @apply bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-medium;
   }
-
-  .badge-info {
-    background-color: var(--info-bg);
-    color: var(--info);
-    border-radius: 9999px;
-    padding: 2px 8px;
-    font-size: 12px;
-    font-weight: 500;
-  }
-
+  
   .badge-warning {
-    background-color: var(--warning-bg);
-    color: var(--warning);
-    border-radius: 9999px;
-    padding: 2px 8px;
-    font-size: 12px;
-    font-weight: 500;
+    @apply bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .badge-danger {
+    @apply bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .badge-info {
+    @apply bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium;
   }
 }
