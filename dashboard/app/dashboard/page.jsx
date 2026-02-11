@@ -1,5 +1,3 @@
-import Sidebar from "@/components/Sidebar";
-import Navbar from "@/components/Navbar";
 import StatCard from "@/components/StatCard";
 import AppointmentList from "@/components/AppointmentList";
 import ActivityFeed from "@/components/ActivityFeed";

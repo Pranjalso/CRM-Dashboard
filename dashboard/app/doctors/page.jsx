@@ -58,14 +58,7 @@ export default function DoctorsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white border border-gray-300 rounded-xl p-6">
-        <h1 className="text-2xl font-bold">Doctor Management Directory</h1>
-        <p className="text-gray-600 mt-2">Showing 4 of 28 practitioners</p>
-        <div className="mt-4 text-sm">
-          <span className="font-semibold">Alex Johnson</span> — ADMINISTRATOR
-        </div>
-      </div>
+      
 
       {/* Search and Filters */}
       <div className="flex flex-col md:flex-row gap-4">

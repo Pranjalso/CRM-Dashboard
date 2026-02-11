@@ -15,7 +15,7 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className={`${isCollapsed ? 'w-20' : 'w-64'} bg-white border-r border-[#E5E7EB] p-4 md:p-6 flex flex-col transition-all duration-300`}>
+    <aside className={`${isCollapsed ? 'w-20' : 'w-64'} bg-white border-r border-[#E5E7EB] p-4 md:p-6 flex flex-col transition-all duration-300 md:sticky md:top-0 md:h-screen`}>
       <div className="flex items-center gap-3 mb-8">
         <div className="w-8 h-8 bg-[#0F766E] rounded-md flex-shrink-0" />
         {!isCollapsed && <span className="font-semibold text-lg whitespace-nowrap">Clinic CRM</span>}

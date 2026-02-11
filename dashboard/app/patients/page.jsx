@@ -90,16 +90,7 @@ export default function PatientsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with Stats */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Patient Management</h1>
-          <p className="text-gray-600 mt-1">Manage all patient records and information</p>
-        </div>
-        <div className="text-sm text-gray-600">
-          <span className="font-semibold">Alex Johnson</span> — ADMINISTRATOR
-        </div>
-      </div>
+      
 
       {/* Search and Filters */}
       <div className="flex flex-col md:flex-row gap-4">
