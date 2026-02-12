@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-export default function Sidebar() {
+export default function Sidebar({ onNavigate, mobile = false }) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -14,19 +14,24 @@ export default function Sidebar() {
     { name: "Doctors", path: "/doctors", icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" },
   ];
 
+  const widthClass = mobile ? "w-64" : isCollapsed ? "w-20" : "w-64";
+
   return (
-    <aside className={`${isCollapsed ? 'w-20' : 'w-64'} bg-white border-r border-[#E5E7EB] p-4 md:p-6 flex flex-col transition-all duration-300 md:sticky md:top-0 md:h-screen`}>
-      <div className="flex items-center gap-3 mb-8">
+    <aside className={`${widthClass} bg-white border-r border-[#E5E7EB] p-4 md:p-6 flex flex-col transition-all duration-300 flex-shrink-0 ${mobile ? "h-full" : "md:sticky md:top-0 md:h-screen"} overflow-y-auto`}>
+      <div className={`flex items-center gap-3 mb-8 min-w-0 ${isCollapsed ? "justify-center" : ""}`}>
         <div className="w-8 h-8 bg-[#0F766E] rounded-md flex-shrink-0" />
-        {!isCollapsed && <span className="font-semibold text-lg whitespace-nowrap">Clinic CRM</span>}
-        <button 
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="ml-auto text-gray-500 hover:text-gray-700"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-          </svg>
-        </button>
+        {!isCollapsed && <span className="font-semibold text-lg whitespace-nowrap truncate">Clinic CRM</span>}
+        {!mobile && (
+          <button 
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="ml-auto text-gray-500 hover:text-gray-700"
+            aria-label="Collapse sidebar"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <nav className="space-y-2 flex-1">
@@ -36,16 +41,17 @@ export default function Sidebar() {
             <Link
               key={item.name}
               href={item.path}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+              className={`flex items-center ${isCollapsed ? "justify-center gap-0 px-0" : "gap-3 px-3"} py-2 rounded-lg text-sm transition-colors ${
                 isActive 
                   ? 'bg-[#0F766E] text-white' 
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
+              onClick={() => onNavigate && onNavigate()}
             >
-              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-5 h-5 flex-shrink-0 ${isCollapsed ? "mx-auto" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
               </svg>
-              {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
+              {!isCollapsed && <span className="truncate">{item.name}</span>}
             </Link>
           );
         })}

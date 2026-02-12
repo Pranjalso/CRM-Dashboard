@@ -1,7 +1,7 @@
-"use client";
+ "use client";
 import { useState } from "react";
 
-const appointments = [
+const initialAppointments = [
   {
     id: "#APT-1024",
     patient: "John Doe",
@@ -46,6 +46,36 @@ const appointments = [
 
 export default function AppointmentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
+  const [appointments, setAppointments] = useState(initialAppointments);
+  const [showModal, setShowModal] = useState(false);
+  const [editApt, setEditApt] = useState(null);
+  const [deleteApt, setDeleteApt] = useState(null);
+  const patientsCatalog = [
+    { id: "PID-882910", name: "John Doe", phone: "+1 (555) 0123" },
+    { id: "PID-882911", name: "Jane Gill", phone: "+1 (555) 0456" },
+    { id: "PID-882912", name: "Robert Fox", phone: "+1 (555) 0890" },
+    { id: "PID-882913", name: "Emily Day", phone: "+1 (555) 0333" },
+  ];
+
+  const [form, setForm] = useState({
+    patientId: "",
+    patient: "",
+    phone: "",
+    doctor: "",
+    dateTime: "",
+    source: "WHATSAPP",
+    status: "Confirmed",
+  });
+  const [editForm, setEditForm] = useState({
+    id: "",
+    patientId: "",
+    patient: "",
+    phone: "",
+    doctor: "",
+    dateTime: "",
+    source: "WHATSAPP",
+    status: "Confirmed",
+  });
 
   const getStatusColor = (status) => {
     switch (status.toLowerCase()) {
@@ -54,6 +84,99 @@ export default function AppointmentsPage() {
       case "cancelled": return "bg-red-100 text-red-800";
       default: return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const formatDateTime = (value) => {
+    if (!value) return "";
+    const d = new Date(value);
+    return d.toLocaleString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const createAptId = () => {
+    const rnd = Math.floor(1000 + Math.random() * 9000);
+    return `#APT-${rnd}`;
+  };
+
+  const onSelectPatientId = (pid) => {
+    const p = patientsCatalog.find((x) => x.id === pid);
+    setForm((prev) => ({
+      ...prev,
+      patientId: pid,
+      patient: p ? p.name : "",
+      phone: p ? p.phone : "",
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const newApt = {
+      id: createAptId(),
+      patient: form.patient,
+      phone: form.phone,
+      doctor: form.doctor,
+      issue: "",
+      time: formatDateTime(form.dateTime),
+      source: form.source,
+      status: form.status,
+    };
+    setAppointments((prev) => [newApt, ...prev]);
+    setShowModal(false);
+    setForm({
+      patientId: "",
+      patient: "",
+      phone: "",
+      doctor: "",
+      dateTime: "",
+      source: "WHATSAPP",
+      status: "Confirmed",
+    });
+  };
+  
+  const openEdit = (apt) => {
+    setEditApt(apt);
+    setEditForm({
+      id: apt.id,
+      patientId: "",
+      patient: apt.patient,
+      phone: apt.phone,
+      doctor: apt.doctor,
+      dateTime: "",
+      source: apt.source,
+      status: apt.status,
+    });
+  };
+  
+  const saveEdit = (e) => {
+    e.preventDefault();
+    setAppointments((prev) =>
+      prev.map((a) =>
+        a.id === editForm.id
+          ? {
+              ...a,
+              patient: editForm.patient,
+              phone: editForm.phone,
+              doctor: editForm.doctor,
+              time: editForm.dateTime ? formatDateTime(editForm.dateTime) : a.time,
+              source: editForm.source,
+              status: editForm.status,
+            }
+          : a
+      )
+    );
+    setEditApt(null);
+  };
+  
+  const confirmDelete = (apt) => setDeleteApt(apt);
+  const doDelete = () => {
+    setAppointments((prev) => prev.filter((a) => a.id !== deleteApt.id));
+    setDeleteApt(null);
   };
 
   return (
@@ -82,7 +205,12 @@ export default function AppointmentsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
-          <button className="px-4 py-2 bg-[#0F766E] text-white rounded-lg text-sm">+ New</button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="px-4 py-2 bg-[#0F766E] text-white rounded-lg text-sm"
+          >
+            + New
+          </button>
         </div>
       </div>
 
@@ -129,11 +257,26 @@ export default function AppointmentsPage() {
                     </span>
                   </td>
                   <td className="p-4">
-                    <button className="text-gray-400 hover:text-gray-600">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                      </svg>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+                        onClick={() => openEdit(apt)}
+                        aria-label="Edit"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button
+                        className="p-2 rounded-lg hover:bg-red-50 text-red-600"
+                        onClick={() => confirmDelete(apt)}
+                        aria-label="Delete"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -180,11 +323,26 @@ export default function AppointmentsPage() {
                   }`}>
                     {apt.source}
                   </span>
-                  <button className="text-gray-400 hover:text-gray-600">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                    </svg>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+                      onClick={() => openEdit(apt)}
+                      aria-label="Edit"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      className="p-2 rounded-lg hover:bg-red-50 text-red-600"
+                      onClick={() => confirmDelete(apt)}
+                      aria-label="Delete"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -204,6 +362,221 @@ export default function AppointmentsPage() {
           </div>
         </div>
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="w-full max-w-2xl bg-white border border-gray-200 rounded-xl">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold">Create New Appointment</h3>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-2 rounded-lg hover:bg-gray-100"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-4 md:p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Patient ID</label>
+                  <select
+                    value={form.patientId}
+                    onChange={(e) => onSelectPatientId(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="">Select patient</option>
+                    {patientsCatalog.map((p) => (
+                      <option key={p.id} value={p.id}>{p.id}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Patient Name</label>
+                  <input
+                    value={form.patient}
+                    onChange={(e) => setForm({ ...form, patient: e.target.value })}
+                    placeholder="Enter patient name"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Phone Number</label>
+                  <input
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Doctor</label>
+                  <input
+                    value={form.doctor}
+                    onChange={(e) => setForm({ ...form, doctor: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="e.g. Dr. Sarah Smith"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Date/Time</label>
+                  <input
+                    type="datetime-local"
+                    value={form.dateTime}
+                    onChange={(e) => setForm({ ...form, dateTime: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Source</label>
+                  <select
+                    value={form.source}
+                    onChange={(e) => setForm({ ...form, source: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option>WHATSAPP</option>
+                    <option>STAFF ENTRY</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Status</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option>Confirmed</option>
+                    <option>Pending</option>
+                    <option>Cancelled</option>
+                  </select>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary">
+                  Save Appointment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      {editApt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="w-full max-w-2xl bg-white border border-gray-200 rounded-xl">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold">Edit Appointment</h3>
+              <button
+                onClick={() => setEditApt(null)}
+                className="p-2 rounded-lg hover:bg-gray-100"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={saveEdit} className="p-4 md:p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Patient Name</label>
+                  <input
+                    value={editForm.patient}
+                    onChange={(e) => setEditForm({ ...editForm, patient: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Phone Number</label>
+                  <input
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Doctor</label>
+                  <input
+                    value={editForm.doctor}
+                    onChange={(e) => setEditForm({ ...editForm, doctor: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Date/Time</label>
+                  <input
+                    type="datetime-local"
+                    value={editForm.dateTime}
+                    onChange={(e) => setEditForm({ ...editForm, dateTime: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Source</label>
+                  <select
+                    value={editForm.source}
+                    onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option>WHATSAPP</option>
+                    <option>STAFF ENTRY</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option>Confirmed</option>
+                    <option>Pending</option>
+                    <option>Cancelled</option>
+                  </select>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <button type="button" className="btn-secondary" onClick={() => setEditApt(null)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary">
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deleteApt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="w-full max-w-md bg-white border border-gray-200 rounded-xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-2">Delete Appointment</h3>
+              <p className="text-sm text-gray-600">Are you sure you want to delete {deleteApt.id}?</p>
+              <div className="mt-6 flex justify-end gap-3">
+                <button className="btn-secondary" onClick={() => setDeleteApt(null)}>
+                  Cancel
+                </button>
+                <button className="btn-primary bg-red-600 hover:bg-red-700" onClick={doDelete}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

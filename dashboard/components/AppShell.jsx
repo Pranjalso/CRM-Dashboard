@@ -55,7 +55,7 @@ export default function AppShell({ children }) {
             className="fixed left-0 top-0 bottom-0 w-64 bg-white shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
-            <Sidebar />
+            <Sidebar mobile onNavigate={() => setMobileOpen(false)} />
           </div>
         </div>
       )}
