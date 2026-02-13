@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
 // Sample patient data matching your image
@@ -79,14 +79,13 @@ export default function PatientsPage() {
     gender: "Male",
     phone: "",
     lastVisit: "Today",
-    nextAppointment: "",
     status: "Active",
   });
   const [viewPatient, setViewPatient] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const lastVisitOptions = ["Today", "Yesterday", "Oct 24, 2023", "Oct 23, 2023"];
-  const [editPatient, setEditPatient] = useState(null);
-  const [editForm, setEditForm] = useState({
+  const [editPatient] = useState(null);
+  const [editForm] = useState({
     id: "",
     name: "",
     dob: "",
@@ -96,6 +95,16 @@ export default function PatientsPage() {
     nextAppointment: "",
     status: "Active",
   });
+
+  const splitAppointmentDateTime = (value) => {
+    if (!value) return { date: "", time: "" };
+    const match = value.match(/^(.+?\d{4})(?:,)?\s+(.*)$/);
+    if (!match) return { date: value, time: "" };
+    return { date: match[1], time: match[2] };
+  };
+
+  const getApptDatePart = (value) => splitAppointmentDateTime(value).date;
+  const getApptTimePart = (value) => splitAppointmentDateTime(value).time;
 
   const calcAge = (dobStr) => {
     if (!dobStr) return "";
@@ -122,7 +131,7 @@ export default function PatientsPage() {
       gender: form.gender,
       phone: form.phone.trim(),
       lastVisit: form.lastVisit.trim(),
-      nextAppointment: form.nextAppointment.trim(),
+      nextAppointment: "",
       status: form.status,
     };
     setPatients((prev) => [newPatient, ...prev]);
@@ -133,11 +142,67 @@ export default function PatientsPage() {
       gender: "Male",
       phone: "",
       lastVisit: "Today",
-      nextAppointment: "",
       status: "Active",
     });
     setCurrentPage(1);
   };
+
+  // Load patients from localStorage (shared with detail page)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("crm_patients");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setPatients(parsed);
+          return;
+        }
+      }
+      // Seed storage with initial data if nothing exists
+      window.localStorage.setItem("crm_patients", JSON.stringify(initialPatients));
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  // Persist patients to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem("crm_patients", JSON.stringify(patients));
+    } catch {
+      // ignore storage errors
+    }
+  }, [patients]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("crm_latest_appointments");
+      if (!raw) return;
+      const map = JSON.parse(raw);
+      if (!map || typeof map !== "object") return;
+
+      setPatients((prev) =>
+        prev.map((p) => {
+          const stored = map[p.name];
+          if (!stored || !stored.time) {
+            return {
+              ...p,
+              nextAppointment: p.nextAppointment || "",
+            };
+          }
+          return {
+            ...p,
+            nextAppointment: stored.time,
+          };
+        })
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
   
   const handleDelete = (id) => {
     setPatients((prev) => prev.filter((p) => p.id !== id));
@@ -237,14 +302,37 @@ export default function PatientsPage() {
                     {patient.dob} ({patient.age} y.o.)
                   </td>
                   <td className="py-4 px-6">
-                    <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        patient.gender === "Male"
+                          ? "bg-blue-50 text-blue-700"
+                          : patient.gender === "Female"
+                          ? "bg-pink-50 text-pink-700"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
                       {patient.gender}
                     </span>
                   </td>
                   <td className="py-4 px-6 text-sm">{patient.phone}</td>
                   <td className="py-4 px-6 text-sm text-gray-600">{patient.lastVisit}</td>
                   <td className="py-4 px-6">
-                    <div className="font-medium">{patient.nextAppointment}</div>
+                    {patient.nextAppointment ? (
+                      <div className="inline-flex flex-col text-xs">
+                        <span className="font-semibold text-gray-900">
+                          {getApptDatePart(patient.nextAppointment)}
+                        </span>
+                        {getApptTimePart(patient.nextAppointment) && (
+                          <span className="text-gray-500">
+                            {getApptTimePart(patient.nextAppointment)}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                        no appointment
+                      </span>
+                    )}
                   </td>
                   <td className="py-4 px-6">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -257,37 +345,16 @@ export default function PatientsPage() {
                   </td>
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-2">
-                      <button
+                      <Link
+                        href={`/patients/${patient.id}`}
                         className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
-                        onClick={() => setViewPatient(patient)}
                         aria-label="View"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
-                      </button>
-                      <button
-                        className="p-2 rounded-lg hover:bg-blue-50 text-blue-600"
-                        onClick={() => {
-                          setEditPatient(patient);
-                          setEditForm({
-                            id: patient.id,
-                            name: patient.name,
-                            dob: patient.dob,
-                            gender: patient.gender,
-                            phone: patient.phone,
-                            lastVisit: patient.lastVisit,
-                            nextAppointment: patient.nextAppointment,
-                            status: patient.status,
-                          });
-                        }}
-                        aria-label="Edit"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
+                      </Link>
                       <button
                         className="p-2 rounded-lg hover:bg-red-50 text-red-600"
                         onClick={() => setDeleteTarget(patient)}
@@ -333,7 +400,15 @@ export default function PatientsPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Gender:</span>
-                  <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      patient.gender === "Male"
+                        ? "bg-blue-50 text-blue-700"
+                        : patient.gender === "Female"
+                        ? "bg-pink-50 text-pink-700"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
                     {patient.gender}
                   </span>
                 </div>
@@ -343,42 +418,36 @@ export default function PatientsPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Next Visit:</span>
-                  <span className="font-medium">{patient.nextAppointment}</span>
+                  {patient.nextAppointment ? (
+                    <span className="text-right text-sm">
+                      <span className="block font-semibold text-gray-900">
+                        {getApptDatePart(patient.nextAppointment)}
+                      </span>
+                      {getApptTimePart(patient.nextAppointment) && (
+                        <span className="block text-xs text-gray-500">
+                          {getApptTimePart(patient.nextAppointment)}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                      no appointment
+                    </span>
+                  )}
                 </div>
                 <div className="pt-3 border-t border-gray-200 flex justify-between items-center">
                   <span className="text-sm text-gray-500">Last Visit: {patient.lastVisit}</span>
                   <div className="flex items-center gap-2">
-                    <button
+                    <Link
+                      href={`/patients/${patient.id}`}
                       className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
-                      onClick={() => setViewPatient(patient)}
                       aria-label="View"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
-                    </button>
-                    <button
-                      className="p-2 rounded-lg hover:bg-blue-50 text-blue-600"
-                      onClick={() => {
-                        setEditPatient(patient);
-                        setEditForm({
-                          id: patient.id,
-                          name: patient.name,
-                          dob: patient.dob,
-                          gender: patient.gender,
-                          phone: patient.phone,
-                          lastVisit: patient.lastVisit,
-                          nextAppointment: patient.nextAppointment,
-                          status: patient.status,
-                        });
-                      }}
-                      aria-label="Edit"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
+                    </Link>
                     <button
                       className="p-2 rounded-lg hover:bg-red-50 text-red-600"
                       onClick={() => setDeleteTarget(patient)}
@@ -456,183 +525,7 @@ export default function PatientsPage() {
         </div>
       </div>
       
-      {viewPatient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-          <div className="w-full max-w-xl bg-white border border-gray-200 rounded-xl">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold">Patient Details</h3>
-              <button
-                onClick={() => setViewPatient(null)}
-                className="p-2 rounded-lg hover:bg-gray-100"
-                aria-label="Close"
-              >
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <div className="text-gray-500">Patient ID</div>
-                <div className="font-medium">{viewPatient.id}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Name</div>
-                <div className="font-medium">{viewPatient.name}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">DOB</div>
-                <div className="font-medium">{viewPatient.dob} ({viewPatient.age} y.o.)</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Gender</div>
-                <div className="font-medium">{viewPatient.gender}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Phone</div>
-                <div className="font-medium">{viewPatient.phone}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Last Visit</div>
-                <div className="font-medium">{viewPatient.lastVisit}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Next Appointment</div>
-                <div className="font-medium">{viewPatient.nextAppointment}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Status</div>
-                <div className="font-medium">{viewPatient.status}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {editPatient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-          <div className="w-full max-w-2xl bg-white border border-gray-200 rounded-xl">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold">Edit Patient</h3>
-              <button
-                onClick={() => setEditPatient(null)}
-                className="p-2 rounded-lg hover:bg-gray-100"
-                aria-label="Close"
-              >
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setPatients((prev) =>
-                  prev.map((p) =>
-                    p.id === editForm.id
-                      ? {
-                          ...p,
-                          name: editForm.name,
-                          dob: editForm.dob,
-                          age: calcAge(editForm.dob),
-                          gender: editForm.gender,
-                          phone: editForm.phone,
-                          lastVisit: editForm.lastVisit,
-                          nextAppointment: editForm.nextAppointment,
-                          status: editForm.status,
-                        }
-                      : p
-                  )
-                );
-                setEditPatient(null);
-              }}
-              className="p-4 md:p-6"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Name</label>
-                  <input
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Date of Birth</label>
-                  <input
-                    type="date"
-                    value={editForm.dob}
-                    onChange={(e) => setEditForm({ ...editForm, dob: e.target.value })}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Gender</label>
-                  <select
-                    value={editForm.gender}
-                    onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  >
-                    <option>Male</option>
-                    <option>Female</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Phone</label>
-                  <input
-                    value={editForm.phone}
-                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Last Visit</label>
-                  <select
-                    value={editForm.lastVisit}
-                    onChange={(e) => setEditForm({ ...editForm, lastVisit: e.target.value })}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  >
-                    {lastVisitOptions.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Next Appointment</label>
-                  <input
-                    value={editForm.nextAppointment}
-                    onChange={(e) => setEditForm({ ...editForm, nextAppointment: e.target.value })}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text sm text-gray-700 mb-1">Status</label>
-                  <select
-                    value={editForm.status}
-                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  >
-                    <option>Active</option>
-                    <option>Inactive</option>
-                  </select>
-                </div>
-              </div>
-              <div className="mt-6 flex justify-end gap-3">
-                <button type="button" className="btn-secondary" onClick={() => setEditPatient(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary">
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Legacy inline view/edit modals removed in favor of dedicated detail pages */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div className="w-full max-w-md bg-white border border-gray-200 rounded-xl">
@@ -729,16 +622,6 @@ export default function PatientsPage() {
                       <option key={opt} value={opt}>{opt}</option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Next Appointment</label>
-                  <input
-                    type="text"
-                    value={form.nextAppointment}
-                    onChange={(e) => setForm({ ...form, nextAppointment: e.target.value })}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                    placeholder="e.g. Today, 10:00 AM"
-                  />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">Status</label>

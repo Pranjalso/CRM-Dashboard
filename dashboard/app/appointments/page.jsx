@@ -11,6 +11,7 @@ const initialAppointments = [
     time: "Oct 24, 2023 10:00 AM - 10:15 AM",
     source: "WHATSAPP",
     status: "Confirmed",
+    dateCategory: "today",
   },
   {
     id: "#APT-1025",
@@ -21,6 +22,7 @@ const initialAppointments = [
     time: "Oct 24, 2023 11:30 AM - 11:45 AM",
     source: "STAFF ENTRY",
     status: "Pending",
+    dateCategory: "today",
   },
   {
     id: "#APT-1026",
@@ -31,6 +33,7 @@ const initialAppointments = [
     time: "Oct 24, 2023 02:00 PM - 02:15 PM",
     source: "WHATSAPP",
     status: "Cancelled",
+    dateCategory: "past",
   },
   {
     id: "#APT-1027",
@@ -41,6 +44,7 @@ const initialAppointments = [
     time: "Oct 25, 2023 09:00 AM - 09:15 AM",
     source: "STAFF ENTRY",
     status: "Confirmed",
+    dateCategory: "upcoming",
   },
 ];
 
@@ -50,6 +54,8 @@ export default function AppointmentsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editApt, setEditApt] = useState(null);
   const [deleteApt, setDeleteApt] = useState(null);
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const patientsCatalog = [
     { id: "PID-882910", name: "John Doe", phone: "+1 (555) 0123" },
     { id: "PID-882911", name: "Jane Gill", phone: "+1 (555) 0456" },
@@ -63,7 +69,7 @@ export default function AppointmentsPage() {
     phone: "",
     doctor: "",
     dateTime: "",
-    source: "WHATSAPP",
+    source: "STAFF ENTRY",
     status: "Confirmed",
   });
   const [editForm, setEditForm] = useState({
@@ -85,6 +91,31 @@ export default function AppointmentsPage() {
       default: return "bg-gray-100 text-gray-800";
     }
   };
+
+  const getDateCategory = (value) => {
+    if (!value) return "upcoming";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "upcoming";
+
+    const today = new Date();
+    const sameDay =
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth() === today.getMonth() &&
+      d.getDate() === today.getDate();
+
+    if (sameDay) return "today";
+    return d < today ? "past" : "upcoming";
+  };
+
+  const splitDateAndTime = (value) => {
+    if (!value) return { date: "", time: "" };
+    const match = value.match(/^(.+?\d{4})(?:,)?\s+(.*)$/);
+    if (!match) return { date: value, time: "" };
+    return { date: match[1], time: match[2] };
+  };
+
+  const getDatePart = (value) => splitDateAndTime(value).date;
+  const getTimePart = (value) => splitDateAndTime(value).time;
 
   const formatDateTime = (value) => {
     if (!value) return "";
@@ -116,6 +147,7 @@ export default function AppointmentsPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const category = getDateCategory(form.dateTime);
     const newApt = {
       id: createAptId(),
       patient: form.patient,
@@ -125,8 +157,26 @@ export default function AppointmentsPage() {
       time: formatDateTime(form.dateTime),
       source: form.source,
       status: form.status,
+      dateCategory: category,
     };
     setAppointments((prev) => [newApt, ...prev]);
+    // Persist latest appointment per patient for Patients page
+    try {
+      if (typeof window !== "undefined") {
+        const raw = window.localStorage.getItem("crm_latest_appointments");
+        const existing = raw ? JSON.parse(raw) : {};
+        const updated = {
+          ...(existing && typeof existing === "object" ? existing : {}),
+          [newApt.patient]: {
+            time: newApt.time,
+            createdAt: new Date().toISOString(),
+          },
+        };
+        window.localStorage.setItem("crm_latest_appointments", JSON.stringify(updated));
+      }
+    } catch {
+      // ignore storage errors
+    }
     setShowModal(false);
     setForm({
       patientId: "",
@@ -134,7 +184,7 @@ export default function AppointmentsPage() {
       phone: "",
       doctor: "",
       dateTime: "",
-      source: "WHATSAPP",
+      source: "STAFF ENTRY",
       status: "Confirmed",
     });
   };
@@ -179,6 +229,31 @@ export default function AppointmentsPage() {
     setDeleteApt(null);
   };
 
+  const filteredAppointments = appointments
+    .filter((apt) => {
+      if (filter === "today") return apt.dateCategory === "today";
+      if (filter === "upcoming") return apt.dateCategory === "upcoming";
+      if (filter === "past") return apt.dateCategory === "past";
+      return true;
+    })
+    .filter((apt) => {
+      if (!search.trim()) return true;
+      const term = search.toLowerCase();
+      return (
+        apt.patient.toLowerCase().includes(term) ||
+        apt.id.toLowerCase().includes(term) ||
+        apt.doctor.toLowerCase().includes(term) ||
+        apt.phone.toLowerCase().includes(term)
+      );
+    });
+
+  const itemsPerPage = 10;
+  const totalPages = Math.max(1, Math.ceil(filteredAppointments.length / itemsPerPage));
+  const currentSafePage = Math.min(currentPage, totalPages);
+  const startIndex = (currentSafePage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedAppointments = filteredAppointments.slice(startIndex, endIndex);
+
   return (
     <div className="space-y-6">
       {/* Stats Bar */}
@@ -189,9 +264,58 @@ export default function AppointmentsPage() {
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4 justify-between">
         <div className="flex flex-wrap gap-2">
-          <button className="px-4 py-2 bg-[#0F766E] text-white rounded-lg text-sm">All Appointments</button>
-          <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm">Today</button>
-          <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm">Upcoming</button>
+          <button
+            onClick={() => {
+              setFilter("all");
+              setCurrentPage(1);
+            }}
+            className={`px-4 py-2 rounded-lg text-sm ${
+              filter === "all"
+                ? "bg-[#0F766E] text-white"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            All Appointments
+          </button>
+          <button
+            onClick={() => {
+              setFilter("past");
+              setCurrentPage(1);
+            }}
+            className={`px-4 py-2 rounded-lg text-sm ${
+              filter === "past"
+                ? "bg-[#0F766E] text-white"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Past History
+          </button>
+          <button
+            onClick={() => {
+              setFilter("today");
+              setCurrentPage(1);
+            }}
+            className={`px-4 py-2 rounded-lg text-sm ${
+              filter === "today"
+                ? "bg-[#0F766E] text-white"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Today
+          </button>
+          <button
+            onClick={() => {
+              setFilter("upcoming");
+              setCurrentPage(1);
+            }}
+            className={`px-4 py-2 rounded-lg text-sm ${
+              filter === "upcoming"
+                ? "bg-[#0F766E] text-white"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Upcoming
+          </button>
         </div>
         
         <div className="flex gap-3">
@@ -199,6 +323,11 @@ export default function AppointmentsPage() {
             <input
               type="text"
               placeholder="Search appointments..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
               className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-white text-sm w-full md:w-64"
             />
             <svg className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -232,7 +361,7 @@ export default function AppointmentsPage() {
               </tr>
             </thead>
             <tbody>
-              {appointments.map((apt) => (
+              {paginatedAppointments.map((apt) => (
                 <tr key={apt.id} className="border-t border-gray-200 hover:bg-gray-50">
                   <td className="p-4 text-sm font-medium">{apt.id}</td>
                   <td className="p-4">
@@ -243,7 +372,12 @@ export default function AppointmentsPage() {
                     <div className="font-medium">{apt.doctor}</div>
                     <div className="text-xs text-gray-500">{apt.issue}</div>
                   </td>
-                  <td className="p-4 text-sm">{apt.time}</td>
+                  <td className="p-4 text-sm">
+                    <div className="font-semibold text-gray-900">{getDatePart(apt.time)}</div>
+                    {getTimePart(apt.time) && (
+                      <div className="text-xs text-gray-500">{getTimePart(apt.time)}</div>
+                    )}
+                  </td>
                   <td className="p-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       apt.source === "WHATSAPP" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"
@@ -286,7 +420,7 @@ export default function AppointmentsPage() {
 
         {/* Mobile Cards */}
         <div className="md:hidden space-y-4 p-4">
-          {appointments.map((apt) => (
+          {paginatedAppointments.map((apt) => (
             <div key={apt.id} className="bg-white border border-gray-200 rounded-xl p-4">
               <div className="flex justify-between items-start mb-3">
                 <div>
@@ -315,7 +449,14 @@ export default function AppointmentsPage() {
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span>{apt.time}</span>
+                  <span>
+                    <span className="font-semibold text-gray-900">
+                      {getDatePart(apt.time)}
+                    </span>
+                    {getTimePart(apt.time) && (
+                      <span className="text-gray-500"> • {getTimePart(apt.time)}</span>
+                    )}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center pt-2 border-t">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -351,14 +492,45 @@ export default function AppointmentsPage() {
 
         {/* Pagination */}
         <div className="border-t border-gray-200 p-4 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-gray-600">Showing 1 to 4 of 1,284 entries</p>
+          <p className="text-sm text-gray-600">
+            Showing {filteredAppointments.length === 0 ? 0 : startIndex + 1} to{" "}
+            {Math.min(endIndex, filteredAppointments.length)} of {filteredAppointments.length} entries
+          </p>
           <div className="flex items-center gap-2">
-            <button className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Previous</button>
-            <button className="px-3 py-2 bg-[#0F766E] text-white rounded-lg text-sm">1</button>
-            <button className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">2</button>
-            <button className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">3</button>
-            <span className="px-2 text-gray-500">...</span>
-            <button className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Next</button>
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              disabled={currentSafePage === 1}
+              className={`px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 ${
+                currentSafePage === 1 ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            >
+              Previous
+            </button>
+            {Array.from({ length: totalPages }, (_, idx) => {
+              const page = idx + 1;
+              return (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`px-3 py-2 rounded-lg text-sm ${
+                    page === currentSafePage
+                      ? "bg-[#0F766E] text-white"
+                      : "border border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {page}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={currentSafePage === totalPages}
+              className={`px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 ${
+                currentSafePage === totalPages ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>
@@ -431,17 +603,6 @@ export default function AppointmentsPage() {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                     required
                   />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Source</label>
-                  <select
-                    value={form.source}
-                    onChange={(e) => setForm({ ...form, source: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  >
-                    <option>WHATSAPP</option>
-                    <option>STAFF ENTRY</option>
-                  </select>
                 </div>
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">Status</label>
